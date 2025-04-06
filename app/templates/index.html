@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Process Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #718096;
+        }
+        /* Smooth transitions */
+        .transition-all {
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8 max-w-7xl">
+        <header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                System Process Monitor
+            </h1>
+            <div class="flex items-center space-x-4">
+                <input 
+                    type="text" 
+                    id="process-search" 
+                    placeholder="Search Processes..." 
+                    class="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 transition-all"
+                >
+                <button id="dark-mode-toggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                    <i id="theme-icon" class="fas fa-moon text-lg"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- CPU Usage Card -->
+            <div id="cpu-card" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
+                <h2 class="text-xl font-semibold mb-4 text-blue-600 dark:text-blue-400">CPU Usage</h2>
+                <div class="relative">
+                    <canvas id="cpu-chart" height="200"></canvas>
+                </div>
+                <div id="cpu-details" class="mt-4 text-center text-sm text-gray-600 dark:text-gray-300"></div>
+            </div>
+
+            <!-- Memory Usage Card -->
+            <div id="memory-card" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
+                <h2 class="text-xl font-semibold mb-4 text-blue-600 dark:text-blue-400">Memory Usage</h2>
+                <div class="relative">
+                    <canvas id="memory-chart" height="200"></canvas>
+                </div>
+                <div id="memory-details" class="mt-4 text-center text-sm text-gray-600 dark:text-gray-300"></div>
+            </div>
+
+            <!-- System Info Card -->
+            <div id="system-info-card" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
+                <h2 class="text-xl font-semibold mb-4 text-blue-600 dark:text-blue-400">System Information</h2>
+                <div id="system-info-details" class="space-y-2 text-sm text-gray-600 dark:text-gray-300"></div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 overflow-hidden">
+            <h2 class="text-xl font-semibold mb-4 text-blue-600 dark:text-blue-400">Running Processes</h2>
+            <div class="overflow-x-auto">
+                <table id="processes-table" class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                            <th class="p-3 text-left font-medium">PID</th>
+                            <th class="p-3 text-left font-medium">Name</th>
+                            <th class="p-3 text-left font-medium">User</th>
+                            <th class="p-3 text-left font-medium">CPU</th>
+                            <th class="p-3 text-left font-medium">Memory</th>
+                            <th class="p-3 text-left font-medium">Priority</th>
+                            <th class="p-3 text-left font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="processes-list" class="divide-y dark:divide-gray-700"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Dark Mode Toggle
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('dark-mode', isDark);
+            themeIcon.classList.toggle('fa-moon', !isDark);
+            themeIcon.classList.toggle('fa-sun', isDark);
+        }
+
+        if (localStorage.getItem('dark-mode') === 'true') {
+            document.documentElement.classList.add('dark');
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        darkModeToggle.addEventListener('click', toggleDarkMode);
+
+        // Chart Configurations
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            animation: { duration: 1000, easing: 'easeInOutQuart' }
+        };
+
+        // CPU Chart
+        const cpuChart = new Chart(document.getElementById('cpu-chart'), {
+            type: 'line',
+            data: {
+                labels: Array(50).fill(''),
+                datasets: [{
+                    label: 'CPU Usage',
+                    data: [],
+                    borderColor: '#36A2EB',
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                ...chartOptions,
+                scales: {
+                    y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } },
+                    x: { display: false }
+                }
+            }
+        });
+
+        // Memory Chart
+        const memoryChart = new Chart(document.getElementById('memory-chart'), {
+            type: 'bar',
+            data: {
+                labels: ['Used', 'Available', 'Total'],
+                datasets: [{
+                    label: 'Memory Usage (MB)',
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'],
+                    data: [0, 0, 0],
+                    borderWidth: 1,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                ...chartOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Memory (MB)' }
+                    }
+                }
+            }
+        });
+
+        // Process Search
+        const processSearch = document.getElementById('process-search');
+        processSearch.addEventListener('input', filterProcesses);
+
+        function updateCPUCard(cpuData, cpuHistory) {
+            document.getElementById('cpu-details').innerHTML = `
+                <span class="font-medium">Current:</span> ${cpuData.overall_usage.toFixed(1)}% 
+                | <span class="font-medium">Freq:</span> ${cpuData.current_freq.toFixed(0)} MHz
+            `;
+            cpuChart.data.datasets[0].data = cpuHistory;
+            cpuChart.update();
+        }
+
+        function updateMemoryCard(memoryData) {
+            document.getElementById('memory-details').innerHTML = `
+                <span class="font-medium">Used:</span> ${memoryData.used.toFixed(0)} MB 
+                | <span class="font-medium">Total:</span> ${memoryData.total.toFixed(0)} MB 
+                | <span class="font-medium">${memoryData.percent.toFixed(1)}%</span>
+            `;
+            memoryChart.data.datasets[0].data = [
+                memoryData.used,
+                memoryData.available,
+                memoryData.total
+            ];
+            memoryChart.update();
+        }
+
+        function updateSystemInfoCard(systemInfo) {
+            document.getElementById('system-info-details').innerHTML = `
+                <p><span class="font-medium">OS:</span> ${systemInfo.os} ${systemInfo.release}</p>
+                <p><span class="font-medium">Processor:</span> ${systemInfo.processor}</p>
+                <p><span class="font-medium">Cores:</span> ${systemInfo.total_cores} 
+                    | <span class="font-medium">Threads:</span> ${systemInfo.total_threads}</p>
+                <p><span class="font-medium">Memory:</span> ${systemInfo.total_memory.toFixed(0)} MB</p>
+            `;
+        }
+
+        function updateProcessesTable(processes) {
+            const processesList = document.getElementById('processes-list');
+            processesList.innerHTML = processes.map(process => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
+                    <td class="p-3">${process.pid}</td>
+                    <td class="p-3 font-medium">${process.name}</td>
+                    <td class="p-3">${process.user}</td>
+                    <td class="p-3">${process.cpu_usage.toFixed(1)}%</td>
+                    <td class="p-3">${process.memory_usage.toFixed(1)}%</td>
+                    <td class="p-3">
+                        <select 
+                            onchange="setPriority(${process.pid}, this.value)" 
+                            class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="low" ${process.priority === 'Low' ? 'selected' : ''}>Low</option>
+                            <option value="normal" ${process.priority === 'Normal' ? 'selected' : ''}>Normal</option>
+                            <option value="high" ${process.priority === 'High' ? 'selected' : ''}>High</option>
+                        </select>
+                    </td>
+                    <td class="p-3">
+                        <button 
+                            onclick="killProcess(${process.pid})" 
+                            class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-all text-sm font-medium"
+                        >
+                            Terminate
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterProcesses() {
+            const searchTerm = processSearch.value.toLowerCase();
+            const rows = document.querySelectorAll('#processes-list tr');
+            rows.forEach(row => {
+                const processName = row.cells[1].textContent.toLowerCase();
+                const processPid = row.cells[0].textContent;
+                row.style.display = 
+                    processName.includes(searchTerm) || 
+                    processPid.includes(searchTerm) ? '' : 'none';
+            });
+        }
+
+        async function setPriority(pid, priority) {
+            try {
+                const response = await fetch('/api/process/priority', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pid, priority })
+                });
+                const result = await response.json();
+                if (result.status !== 'success') {
+                    throw new Error(result.message);
+                }
+                fetchSystemData();
+            } catch (error) {
+                console.error('Priority Error:', error);
+                alert(`Failed to set priority: ${error.message}`);
+            }
+        }
+
+        async function killProcess(pid) {
+            if (!confirm(`Are you sure you want to terminate process ${pid}?`)) return;
+            try {
+                const response = await fetch('/api/process/kill', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pid })
+                });
+                const result = await response.json();
+                if (result.status !== 'success') {
+                    throw new Error(result.message);
+                }
+                fetchSystemData();
+            } catch (error) {
+                console.error('Kill Error:', error);
+                alert(`Failed to terminate process: ${error.message}`);
+            }
+        }
+
+        async function fetchSystemData() {
+            try {
+                const [performanceRes, systemInfoRes, processesRes] = await Promise.all([
+                    fetch('/api/performance'),
+                    fetch('/api/system-info'),
+                    fetch('/api/processes')
+                ]);
+
+                if (!performanceRes.ok || !systemInfoRes.ok || !processesRes.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const [performance, systemInfo, processes] = await Promise.all([
+                    performanceRes.json(),
+                    systemInfoRes.json(),
+                    processesRes.json()
+                ]);
+
+                updateCPUCard(performance.cpu, performance.performance_history.cpu);
+                updateMemoryCard(performance.memory);
+                updateSystemInfoCard(systemInfo);
+                updateProcessesTable(processes);
+            } catch (error) {
+                console.error('Fetch Error:', error);
+            }
+        }
+
+        // Initial fetch and periodic updates
+        fetchSystemData();
+        setInterval(fetchSystemData, 5000);
+    });
+    </script>
+</body>
+</html>

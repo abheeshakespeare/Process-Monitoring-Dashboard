@@ -29,12 +29,53 @@ Install the following dependencies:
 Flask==2.1.0  
 Flask-Cors==3.0.10  
 psutil==5.9.0  
-
+```
 ---
 
-### Install Them Using
+Install Them Using
 
 ```bash
 pip install -r requirements.txt
 ```
+---
+## 📂 Project Structure
 
+```plaintext
+  Process-Monitoring-Dashboard/
+├── static/              # CSS/JS for frontend
+├── templates/           # HTML files (Jinja templates)
+├── run.py               # Main Flask application
+├── requirements.txt     # Python dependencies
+└── README.md
+```
+---
+## ▶️ Running the App
+
+1. Clone the repository
+```bash
+git clone https://github.com/nirajkr26/Process-Monitoring-Dashboard.git
+cd Process-Monitoring-Dashboard
+```
+2. Set up a virtual environment (recommended)
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+3. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+4. Run the Flask app
+```bash
+python run.py
+```
+5. Open in your browser
+```link
+http://localhost:5000
+```
+---
+## 🤝 Contributing
+  ### Pull requests and feedback are welcome!
+  ### Fork the repo, make your changes, and submit a PR.
+---
+## Made with ❤️ by Niraj

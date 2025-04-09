@@ -78,4 +78,6 @@ http://localhost:5000
   ### Pull requests and feedback are welcome!
   ### Fork the repo, make your changes, and submit a PR.
 ---
-## Made with ❤️ by Niraj
+Credits : 
+Abhishek Kr. Mishra
+Niraj Kumar
